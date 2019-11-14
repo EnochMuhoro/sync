@@ -1,0 +1,104 @@
+#include <stdio.h>
+#include <sys/types.h>
+#include <pthread.h>
+#include <stdlib.h>
+
+#define size 5
+#define ch_size 1000
+// create a struct to hold the different variables
+// needed for the producer/customer exercise
+
+typedef struct {
+    int buffer[size]; // array of size of the number of pizza to be produced
+    size_t number; // number of items in the buffer
+    pthread_mutex_t mutex; //create a mutex thread
+    pthread_cond_t producer; // create a producer thread
+    pthread_cond_t customer; // create a customer thread
+} buf;
+
+// create a thread function for the producer
+void *producer(void *arg){
+    buf *bufr = (buf *)arg;
+
+    int i;
+    while(1){
+        pthread_mutex_lock(&bufr -> mutex);
+        for (i = 0; i < size; i++) {
+            if (bufr -> number == size){
+                // the number of trays produced by the chef have reached the required amount
+                // we want the producer to hold their action
+                pthread_mutex_unlock(&bufr -> mutex);
+
+           //     pthread_cond_wait(&bufr -> producer, &bufr -> mutex);
+            }
+            else{
+                pthread_mutex_unlock(&bufr -> mutex);
+                printf("The chef is producing tray : %d \n", i);
+            }
+        }
+
+
+        bufr ->number = i;
+        printf("\nThe number of pizzas produced are %ld:", bufr ->number);
+        printf("\nThe tray is full cannot produced pizza exceeding %ld: \n", bufr ->number);
+
+
+        pthread_cond_signal(&bufr -> producer);
+        pthread_mutex_unlock(&bufr -> mutex);
+
+        return 0;
+    }
+}
+
+
+// create a thread function for the customer
+void *consumer(void *arg){
+    buf *bufr = (buf *)arg;
+
+    int i;
+    while(1){
+        pthread_mutex_lock(&bufr -> mutex);
+        for (i = bufr->number; i >= 0; i--) {
+            if (bufr -> number == 0){
+                // the number of trays produced by the chef have reached zero
+                // we want the customer to tell the chef to produce more pizza
+                pthread_mutex_unlock(&bufr -> mutex);
+//                pthread_cond_wait(&bufr -> customer, &bufr -> mutex);
+
+            }
+            else if (i != 0){
+                pthread_mutex_unlock(&bufr -> mutex);
+                printf("\nThere are %d trays left. \n", i);
+                printf("The customer eats from tray %d \n", i);
+            }
+            else{
+                pthread_mutex_unlock(&bufr -> mutex);
+                printf("\nThere are %d trays left. \n", i);
+                printf("Excuse me chef, the pizzas are over!!! Can you provide something to eat?\n");
+            }
+        }
+
+        pthread_cond_signal(&bufr -> customer);
+        pthread_mutex_unlock(&bufr -> mutex);
+
+        return 0;
+    }
+}
+
+int main() {
+    buf buffer = {
+            .number = 0,
+            .mutex = PTHREAD_MUTEX_INITIALIZER,
+            .producer = PTHREAD_COND_INITIALIZER,
+            .customer = PTHREAD_COND_INITIALIZER
+    };
+
+    pthread_t prod, cons;
+    pthread_create(&prod, NULL, producer, (void*)&buffer);
+    pthread_create(&cons, NULL, consumer, (void*)&buffer);
+
+    pthread_join(prod, NULL);
+    pthread_join(cons, NULL);
+
+    return 0;
+}
